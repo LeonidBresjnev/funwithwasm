@@ -2,6 +2,7 @@ package percentile.project.demo
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -67,13 +69,15 @@ fun MoreFun() {
     }
 
     var showContent by remember { mutableStateOf(false) }
-    var cohorts by remember { mutableStateOf(
-        List(5) {
+    var cohorts = remember { mutableStateListOf(
             CohortCriteria(
-                id = it
+                id = 1,
+                name = "Cohort 1",
+                ageSpan = 0..100
             )
-        })
-    }
+    )
+        }
+
     var editCohort by remember { mutableIntStateOf(-1)}
 
 
@@ -145,25 +149,31 @@ fun MoreFun() {
 
         //Text("Beta(1/2,1/2)=${exp(lnBeta(0.5, 0.5))}")
         LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Adaptive(350.dp),
+            columns = StaggeredGridCells.Adaptive(550.dp),
         ) {
-            items(
-                items = cohorts,
-                key = { cohort -> cohort.id }
-            ) { cohort ->
+
+            items(count=cohorts.size,
+                key= { index -> cohorts[index].id}
+            ) { idx ->
+                val cohort=cohorts[idx]
                 if (editCohort != cohort.id)
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = CardDefaults.elevatedCardColors().containerColor,
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp) ) {
-                    Column {
+                    Column(verticalArrangement = Arrangement.SpaceBetween) {
                         Text(
-                            text = "Cohort: ${cohort.id}"
+                            text = "Cohort ID: ${cohort.id}"
                         )
+
+                        Text(
+                            text = "Cohort name: ${cohort.name}"
+                        )
+                        Text(text="Age: ${cohort.ageSpan.first} - ${cohort.ageSpan.last}")
                         Row {
                             Button(onClick = {
-                                cohorts = cohorts.filter { it.id != cohort.id }
+                                cohorts.removeAt(idx)
                             }) {
                                 Text(text = "Delete")
                             }
@@ -175,30 +185,15 @@ fun MoreFun() {
                         }
                     }
                 }
-                else Card(
-
-                ) {
-                    Column {
-                        Text(
-                            text = "Cohort: ${cohort.id}"
-                        )
-                        Row {
-                            Button(onClick = {
-                                cohorts = cohorts.filter { it.id != cohort.id }
-                            }) {
-                                Text(text = "Delete")
-                            }
-
-                            DiagnosisDialog(buttonText = "Select diagnoses", title = "Select diagnoses", request = "icdfulllist", onSelectionConfirmed = {})
-                            DiagnosisDialog(buttonText = "Select drugs", title = "Select drugs", request = "uscfulllist", onSelectionConfirmed = {})
-                            Button(onClick = {
-                                editCohort = -1
-                            }) {
-                                Text(text = "Ok")
-                            }
-                        }
-                    }
-                }
+                else EditCohort(
+                    cohort=cohort,
+                    onOk={ updatedCohort ->
+                        cohorts.set(idx, updatedCohort)
+                        editCohort = -1
+                    },
+                    onCancel = {
+                        editCohort = -1
+                } )
             }
 
 

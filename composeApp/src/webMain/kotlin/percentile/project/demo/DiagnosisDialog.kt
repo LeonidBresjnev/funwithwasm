@@ -57,6 +57,7 @@ fun DiagnosisDialog(
     val selectedCodes = remember { emptySet<String>().toMutableStateList() }
     var usesearch by remember { mutableStateOf(false) }
 
+
     val getIcd = { code: String ->
         icdCodes[code]
     }
