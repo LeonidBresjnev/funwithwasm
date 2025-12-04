@@ -18,6 +18,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.ktor.client.*
 import io.ktor.client.call.*
+import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
@@ -37,7 +38,7 @@ import kotlin.uuid.ExperimentalUuidApi
 fun FunWithOpenFDA() {
 
     var generic by remember { mutableStateOf("Trilaciclib") }
-    var brand by remember { mutableStateOf("Colesa") }
+    var brand by remember { mutableStateOf("Cosela") }
     var indication by remember { mutableStateOf("") }
 
     var response by remember { mutableStateOf<OpenFDAEntry?>(null) }
@@ -47,7 +48,7 @@ fun FunWithOpenFDA() {
     var showFeature by remember { mutableStateOf(false) }
     var feature by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    var linkNext by remember { mutableStateOf("") }
+    var linkNext by remember { mutableStateOf("init") }
     val scope = rememberCoroutineScope()
 
     var htmlContent = false
@@ -139,10 +140,12 @@ fun FunWithOpenFDA() {
                         install(ContentNegotiation) {
                             json(Json {
                                 ignoreUnknownKeys = true
-                                isLenient = true
-                            })
+                             /*   isLenient = true*/
+                            },
+                                contentType = ContentType.Application.Json)
                         }
                     }
+                    println(client.engine.config.toString())
 
                     val genericQuery = if (generic.length >= 3) "+AND+openfda.generic_name:$generic*" else ""
                     val brandQuery = if (brand.length >= 3) "+AND+openfda.brand_name:$brand*" else ""
@@ -161,6 +164,13 @@ fun FunWithOpenFDA() {
                     val result = resultDef.await()
                     result.onSuccess { action ->
                         status = action.status.value
+                        val headers=action.headers.entries()
+                        println(BASEURL)
+                        println("Headers:")
+                        headers.forEach {
+                            println("${it.key}: ${it.value}, ${it.value.joinToString(", ")}")
+                        }
+                        println("---")
                         linkNext = action.headers["Link"] ?: ""
                         response = if (action.status == HttpStatusCode.OK) {
                             action.body<OpenFDAEntry>()
@@ -171,6 +181,7 @@ fun FunWithOpenFDA() {
                     result.onFailure { error ->
                         response = null
                     }
+                    client.close()
                 }
             },
             modifier = Modifier.padding(5.dp)
@@ -206,7 +217,7 @@ fun FunWithOpenFDA() {
                 val result = resultDef.await()
                 result.onSuccess { action ->
                     status = action.status.value
-                    linkNext = action.headers["Link"] ?: ""
+                    linkNext = action.headers["LINK"] ?: ""
                     response = if (action.status == HttpStatusCode.OK) {
                         action.body<OpenFDAEntry>()
                     } else {
