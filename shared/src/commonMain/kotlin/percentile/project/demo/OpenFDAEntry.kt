@@ -67,4 +67,7 @@ data class OpenFDA(
     val brand_name: List<String> = emptyList(),
     val generic_name: List<String> = emptyList(),
     val substance_name: List<String> = emptyList(),
+    val manufacturer_name: List<String> = emptyList(),
+    val route: List<String> = emptyList(),
+    val product_type: List<String> = emptyList()
 )

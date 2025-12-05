@@ -27,27 +27,27 @@ fun main() {
 
 fun Application.configureHTTP() {
     println("Configuring CORS...")
-    install(CORS) {
+    install(plugin=CORS) {
         allowHeader("user_session")
         exposeHeader("user_session")
-        allowMethod(HttpMethod.Options)
-        allowMethod(HttpMethod.Put)
+        //allowMethod(HttpMethod.Options)
+        //allowMethod(HttpMethod.Put)
         allowMethod(HttpMethod.Delete)
-        allowMethod(HttpMethod.Patch)
+        //allowMethod(HttpMethod.Patch)
         allowMethod(HttpMethod.Get)
-        allowHeader(HttpHeaders.ContentType)
-        allowHeader(HttpHeaders.Authorization)
-        allowHeader(header="MyCustomHeader")
+        //allowHeader(HttpHeaders.ContentType)
+        //allowHeader(HttpHeaders.Authorization)
+        //allowHeader(header="MyCustomHeader")
         anyHost() // @TODO: Don't do this in production if possible. Try to limit it.
     }
 
 
-    install(ContentNegotiation) {
+    install(plugin=ContentNegotiation) {
         json()
     }
 
 
-    install(Compression) {
+    install(plugin=Compression) {
         gzip {
             priority = 1.0
         }

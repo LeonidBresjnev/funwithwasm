@@ -29,8 +29,8 @@ kotlin {
         this.webMain {
             dependencies {
 
-            implementation(npm(name="@stdlib/stats-base-dists-beta-pdf", "0.2.2"))
                 implementation(npm(name="jstat",version="v1.9.3"))
+            implementation(npm(name="@stdlib/stats-base-dists-beta-pdf", "0.2.2"))
                 implementation("io.github.koalaplot:koalaplot-core:0.9.1")
                 implementation("io.ktor:ktor-client-cio:3.3.1")
         }
