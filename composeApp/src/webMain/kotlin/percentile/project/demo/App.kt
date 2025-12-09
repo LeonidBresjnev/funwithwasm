@@ -126,7 +126,7 @@ fun App() {
     }
 
     var selectedTabIndex by remember {
-        mutableIntStateOf(0)
+        mutableIntStateOf(tabRowItems.lastIndex)
     }
 
     LaunchedEffect(selectedTabIndex) {

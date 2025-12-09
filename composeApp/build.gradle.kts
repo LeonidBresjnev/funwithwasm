@@ -56,6 +56,7 @@ kotlin {
 
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content)
+            implementation(libs.ktor.client.auth)
             implementation(libs.ktor.serialization.kotlinx.json)
 
             //implementation("io.github.koalaplot:koalaplot-core:0.9.1")
