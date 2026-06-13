@@ -11,6 +11,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -104,7 +105,7 @@ fun App() {
                 PValueBased()
             }
         ),
-
+/*
         TabRowItem(
             title = "More Fun!",
             screen = {
@@ -117,15 +118,17 @@ fun App() {
             screen = {
                 FunWithOpenFDA()
             }
-        )
+        )*/
     )
 
 
-    val pagerState = rememberPagerState {
-        tabRowItems.size
+    val pagerState = rememberPagerState(
+        initialPage = tabRowItems.lastIndex
+    ) {
+         tabRowItems.size
     }
 
-    var selectedTabIndex by remember {
+    var selectedTabIndex by rememberSaveable {
         mutableIntStateOf(tabRowItems.lastIndex)
     }
 

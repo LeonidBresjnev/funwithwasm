@@ -71,3 +71,23 @@ data class OpenFDA(
     val route: List<String> = emptyList(),
     val product_type: List<String> = emptyList()
 )
+
+@Serializable
+data class OpenFdaNdc(
+    val meta: Meta,
+    val results: OpenFdaNdcResults
+)
+
+@Serializable
+data class OpenFdaNdcResults(
+    val product_ndc: String,
+    val generic_name: String,
+    val brand_name: String,
+
+)
+
+@Serializable
+data class NdcPackage(
+    val package_ndc: String,
+    val description: String
+)
