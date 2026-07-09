@@ -1,6 +1,6 @@
 # FunWithWasm - Borrowing Information Models
 
-[![Deploy Frontend to GitHub Pages](https://github.com/percentile-project/funwithwasm/actions/workflows/deploy.yml/badge.svg)](https://github.com/percentile-project/funwithwasm/actions/workflows/deploy.yml)
+[![Deploy Frontend to GitHub Pages](https://github.com/LeonidBresjnev/funwithwasm/actions/workflows/deploy.yml/badge.svg)](https://github.com/LeonidBresjnev/funwithwasm/actions/workflows/deploy.yml)
 
 This project demonstrates several statistical methods for borrowing information from historical data in clinical trials or other research settings, implemented using Kotlin Wasm and Compose HTML.
 
