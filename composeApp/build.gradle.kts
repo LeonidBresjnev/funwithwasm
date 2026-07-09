@@ -20,26 +20,35 @@ kotlin {
 
     sourceSets {
 
+        val webMain = sourceSets.create("webMain") {
+            dependsOn(commonMain.get())
+            dependencies {
+
+                implementation(npm(name="jstat",version="v1.9.3"))
+            implementation(npm(name="@stdlib/stats-base-dists-beta-pdf", "0.2.2"))
+                implementation("io.ktor:ktor-client-cio:3.3.1")
+
+                // Lets-Plot Kotlin API
+                implementation("org.jetbrains.lets-plot:lets-plot-kotlin:4.15.0")
+            }
+        }
+
         this.jsMain {
+            dependsOn(webMain)
             dependencies {// https://mvnrepository.com/artifact/org.jetbrains.compose.html/html-core
                 implementation("org.jetbrains.compose.html:html-core:1.9.3")
             }
         }
 
-        this.webMain {
-            dependencies {
-
-                implementation(npm(name="jstat",version="v1.9.3"))
-            implementation(npm(name="@stdlib/stats-base-dists-beta-pdf", "0.2.2"))
-                implementation("io.github.koalaplot:koalaplot-core:0.9.1")
-                implementation("io.ktor:ktor-client-cio:3.3.1")
-        }
-        }
         this.wasmJsMain {
+            dependsOn(webMain)
             dependencies {
                 implementation(libs.kotlinx.browser)
 
                 implementation("org.jetbrains.kotlinx:kotlinx-browser-wasm-js:0.5.0")
+
+                // Lets-Plot Compose UI
+                implementation("org.jetbrains.lets-plot:lets-plot-compose:3.2.2")
             }
         }
 

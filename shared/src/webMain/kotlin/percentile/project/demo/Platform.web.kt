@@ -23,6 +23,11 @@ external object JStat {
     }
 }
 
+/**
+ * Web/Wasm implementation of platform-specific statistical functions.
+ * These functions link to external JavaScript libraries (@stdlib/betaln and jstat).
+ */
+
 actual fun lnBeta(a: Double, b: Double): Double = betaln(a,b)
 
 actual fun invchisq_cdf(df: Double, p: Double): Double = JStat.chisquare.inv(p, df)

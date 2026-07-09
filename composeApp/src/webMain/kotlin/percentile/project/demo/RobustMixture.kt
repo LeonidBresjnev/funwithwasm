@@ -5,95 +5,98 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import io.github.koalaplot.core.ChartLayout
-import io.github.koalaplot.core.legend.LegendLocation
-import io.github.koalaplot.core.line.LinePlot
-import io.github.koalaplot.core.style.LineStyle
-import io.github.koalaplot.core.util.ExperimentalKoalaPlotApi
-import io.github.koalaplot.core.util.generateHueColorPalette
-import io.github.koalaplot.core.xygraph.DefaultPoint
-import io.github.koalaplot.core.xygraph.FloatLinearAxisModel
-import io.github.koalaplot.core.xygraph.XYGraph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import org.jetbrains.letsPlot.geom.geomLine
+import org.jetbrains.letsPlot.label.ggtitle
+import org.jetbrains.letsPlot.letsPlot
+import org.jetbrains.letsPlot.scale.scaleColorManual
+import org.jetbrains.letsPlot.scale.scaleXContinuous
+import org.jetbrains.letsPlot.scale.scaleYContinuous
+import org.jetbrains.letsPlot.themes.elementText
+import org.jetbrains.letsPlot.themes.theme
 import kotlin.math.exp
 import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.round
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalKoalaPlotApi::class)
+/**
+ * A Composable that implements the Robust Mixture Prior borrowing model UI.
+ * This model allows borrowing information from a source dataset into a target dataset
+ * using a mixture of informative and non-informative priors.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RobustMixture() {
+    // State for source data parameters
     var ns by remember { mutableIntStateOf(100) }
     var ps by remember { mutableFloatStateOf(0.5f) }
+    
+    // State for target data parameters
     var nt by remember { mutableIntStateOf(100) }
     var pt by remember { mutableFloatStateOf(0.5f) }
+    
+    // UI state
     var maxf by remember { mutableFloatStateOf(15f) }
+    
+    // Model parameters
     var alphaprior by remember { mutableFloatStateOf(0.5f) }
     var betaprior by remember { mutableFloatStateOf(0.5f) }
     var priorw by remember { mutableFloatStateOf(0.5f) }
     var postw by remember { mutableFloatStateOf(0.5f) }
-    //var integral by remember { mutableDoubleStateOf(0.0) }
+    
+    // Data for plots
+    var prior1 by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var prior2 by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var prior by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
 
+    var post1 by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var post2 by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var mydata by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
 
-
-    var prior1 by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-    var prior2 by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-    var prior by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-
-
-    var post1 by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-    var post2 by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-    var mydata by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-
-
-
+    // Re-calculate prior distributions when parameters change
     LaunchedEffect(ns, ps,alphaprior,betaprior, priorw) {
-
-        val xs = ps * ns
-
-        val prior1Def = async {
+        val priorDef = async(Dispatchers.Default) {
+            val dist = BorrowingModels.robustMixturePrior(ns, ps, alphaprior, betaprior, priorw)
+            (1..999).map {
+                val p = it.toDouble() / 1000.0
+                mapOf("x" to p.toFloat(), "y" to dist(p).toFloat())
+            }
+        }
+        val prior1Def = async(Dispatchers.Default) {
+            val xs = ps * ns
             val betadist1 = betapdf((xs + alphaprior).toDouble(), ((ns - xs) + betaprior).toDouble())
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist1(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to betadist1(p).toFloat())
             }
         }
-        val prior2Def = async {
+        val prior2Def = async(Dispatchers.Default) {
             val betadist1 = betapdf( alphaprior.toDouble(),  betaprior.toDouble())
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist1(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to betadist1(p).toFloat())
             }
         }
 
-
+        prior = priorDef.await()
         prior1 = prior1Def.await()
         prior2 = prior2Def.await()
-        prior = prior1.zip(prior2).map {
-            DefaultPoint(
-                x = it.first.x,
-                y = (priorw * it.first.y + (1 - priorw) * it.second.y)
-            )
-        }
     }
 
-
+    // Re-calculate posterior distributions when parameters change
     LaunchedEffect(ns, ps, nt, pt,alphaprior,betaprior,priorw) {
-
-        val xs = ps * ns
         val xt = pt * nt
+        val xs = ps * ns
 
-
-
+        // Calculate posterior weight for the mixture
         val postwUnweighted1 = priorw * exp(
             lnBeta((xt + xs + alphaprior).toDouble(), ((nt - xt) + (ns - xs) + betaprior).toDouble())
                     - lnBeta((xs + alphaprior).toDouble(), ((ns - xs) + betaprior).toDouble())
@@ -104,12 +107,19 @@ fun RobustMixture() {
         )
         postw = (postwUnweighted1 / (postwUnweighted1 + postwUnweighted2)).toFloat()
 
+        val postDef = async(Dispatchers.Default) {
+            val dist = BorrowingModels.robustMixturePosterior(ns, ps, nt, pt, alphaprior, betaprior, priorw)
+            (1..999).map {
+                val p = it.toDouble() / 1000.0
+                mapOf("x" to p.toFloat(), "y" to dist(p).toFloat())
+            }
+        }
 
         val post1Def = async(Dispatchers.Default) {
             val betadist = betapdf((xt + xs + alphaprior).toDouble(), (nt - xt + (ns - xs) + betaprior).toDouble())
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to betadist(p).toFloat())
             }
         }
 
@@ -117,21 +127,13 @@ fun RobustMixture() {
             val betadist2 = betapdf((xt + alphaprior).toDouble(), (nt - xt + betaprior).toDouble())
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist2(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to betadist2(p).toFloat())
             }
         }
 
+        mydata = postDef.await()
         post1 = post1Def.await()
         post2 = post2Def.await()
-
-        launch (Dispatchers.Default) {
-            mydata = post1.zip(post2).map {
-                DefaultPoint(
-                    x = it.first.x,
-                    y = ((postw * it.first.y + (1 - postw) * it.second.y))
-                )
-            }
-        }
     }
 
 
@@ -325,79 +327,42 @@ fun RobustMixture() {
 
         val legends= listOf("Mixture","No Source","With Source")
 
-        val colors = generateHueColorPalette(legends.size)
-
         Row {
 
             Column(modifier = Modifier.weight(0.5f)) {
+                val priorFigure = letsPlot() +
+                        geomLine(data = mapOf("x" to prior.map { it["x"] }, "y" to prior.map { it["y"] }, "c" to List(prior.size) { legends[0] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        geomLine(data = mapOf("x" to prior2.map { it["x"] }, "y" to prior2.map { it["y"] }, "c" to List(prior2.size) { legends[1] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        geomLine(data = mapOf("x" to prior1.map { it["x"] }, "y" to prior1.map { it["y"] }, "c" to List(prior1.size) { legends[2] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        ggtitle("Prior densities") +
+                        scaleColorManual(values=listOf("red", "blue", "green"), naValue = "gray", name = "") +
+                        scaleYContinuous(limits = 0 to maxf) +
+                        scaleXContinuous(name="Success rate in target study") +
+                        theme(
+                            plotTitle = elementText(size = 20, hjust = 0.5),
+                            legendText = elementText(size = 15),
+                            axisText = elementText(size = 15)
+                        ).legendPositionBottom()
 
-                ChartLayout(
-                    title = { Text(text="Prior densities",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleLarge,) },
-                    legend = { Legend(legends, colors) },
-                    legendLocation = LegendLocation.BOTTOM
-                ) {
-                    XYGraph(
-                        modifier = Modifier.weight(0.5f).fillMaxSize(),
-                        xAxisModel = FloatLinearAxisModel(0f..1f),
-                        yAxisModel = FloatLinearAxisModel(0f..maxf),
-                        xAxisTitle = "Probability parameter",
-                        xAxisLabels = { value -> (round(10 * value) / 10f).toString().take(3) },
-                        yAxisTitle = "Density",
-                    ) {
-                        LinePlot(
-                            prior,
-                            lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[0]))
-                        )
-                        LinePlot(
-                            prior1,
-                            lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[2]))
-                        )
-                        LinePlot(
-                            prior2,
-                            lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[1]))
-                        )
-                    }
-                }
+                PlotPanel(figure = priorFigure, modifier = Modifier.weight(0.5f).fillMaxSize())
             }
 
             Column(modifier = Modifier.weight(0.5f)) {
+                val postFigure = letsPlot() +
+                        geomLine(data = mapOf("x" to mydata.map { it["x"] }, "y" to mydata.map { it["y"] }, "c" to List(mydata.size) { legends[0] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        geomLine(data = mapOf("x" to post2.map { it["x"] }, "y" to post2.map { it["y"] }, "c" to List(post2.size) { legends[1] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        geomLine(data = mapOf("x" to post1.map { it["x"] }, "y" to post1.map { it["y"] }, "c" to List(post1.size) { legends[2] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        ggtitle("Posterior distributions") +
+                        scaleColorManual(values=listOf("red", "blue", "green"), naValue = "gray", name = "") +
+                        scaleYContinuous(limits = 0 to maxf) +
+                        scaleXContinuous(name="Success rate in target study") +
+                        theme(
+                            plotTitle = elementText(size = 20, hjust = 0.5),
+                            legendText = elementText(size = 15),
+                            axisText = elementText(size = 15)
+                        ).legendPositionBottom()
 
-                ChartLayout(
-                    title = { Text(text="Posterior distributions",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleLarge,) },
-                    legend = { Legend(legends, colors) },
-                    legendLocation = LegendLocation.BOTTOM
-                ) {
-                XYGraph(
-                    modifier = Modifier.weight(0.5f).fillMaxSize(),
-                    xAxisModel = FloatLinearAxisModel(0f..1f),
-                    yAxisModel = FloatLinearAxisModel(0f..maxf),
-
-
-                    xAxisTitle = "Probability parameter",
-                    xAxisLabels = { value -> (round(10 * value) / 10f).toString().take(3) },
-                    yAxisTitle = "Density",
-
-                    ) {
-
-                    LinePlot(
-                        data = mydata,
-                        lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[0]))
-                    )
-                    LinePlot(
-                        data = post1,
-                        lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[2 ]))
-                    )
-                    LinePlot(
-                        data = post2,
-                        lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[1]),
-                            )
-                    )
-                }
-            }
+                PlotPanel(figure = postFigure, modifier = Modifier.weight(0.5f).fillMaxSize())
             }
         }
     }

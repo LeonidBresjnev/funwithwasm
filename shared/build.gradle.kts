@@ -24,7 +24,6 @@ kotlin {
             // put your Multiplatform dependencies here
             // https://mvnrepository.com/artifact/org.jetbrains.compose.material3/material3
             implementation("org.jetbrains.compose.material3:material3:1.9.0")
-        implementation("io.github.koalaplot:koalaplot-core:0.9.1")
             implementation("org.apache.commons:commons-math3:3.6.1")
             //
         }

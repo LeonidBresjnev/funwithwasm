@@ -8,78 +8,62 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import io.github.koalaplot.core.ChartLayout
-import io.github.koalaplot.core.legend.LegendLocation
-import io.github.koalaplot.core.line.LinePlot
-import io.github.koalaplot.core.style.LineStyle
-import io.github.koalaplot.core.util.ExperimentalKoalaPlotApi
-import io.github.koalaplot.core.util.generateHueColorPalette
-import io.github.koalaplot.core.xygraph.DefaultPoint
-import io.github.koalaplot.core.xygraph.FloatLinearAxisModel
-import io.github.koalaplot.core.xygraph.XYGraph
 import kotlinx.coroutines.async
+import org.jetbrains.letsPlot.geom.geomLine
+import org.jetbrains.letsPlot.label.ggtitle
+import org.jetbrains.letsPlot.letsPlot
+import org.jetbrains.letsPlot.scale.scaleColorManual
+import org.jetbrains.letsPlot.scale.scaleXContinuous
+import org.jetbrains.letsPlot.scale.scaleYContinuous
+import org.jetbrains.letsPlot.themes.elementText
+import org.jetbrains.letsPlot.themes.theme
 import kotlin.math.*
 
-@OptIn(ExperimentalKoalaPlotApi::class)
+/**
+ * A Composable that implements the P-Value Based Borrowing model UI.
+ * This model discounts the source data based on a p-value that measures 
+ * the similarity between source and target data.
+ */
 @Composable
 fun PValueBased() {
+    // State for source data parameters
     var ns by remember { mutableIntStateOf(100) }
     var ps by remember { mutableFloatStateOf(0.5f) }
+    
+    // State for target data parameters
     var nt by remember { mutableIntStateOf(100) }
     var pt by remember { mutableFloatStateOf(0.5f) }
+    
+    // UI state
     var maxf by remember { mutableFloatStateOf(15f) }
+    
+    // Model parameters
     var alphaprior by remember { mutableFloatStateOf(0.5f) }
     var betaprior by remember { mutableFloatStateOf(0.5f) }
     var lambda by remember { mutableFloatStateOf(0.5f) }
     var kappa by remember { mutableFloatStateOf(0.5f) }
     var weight by remember { mutableFloatStateOf(0.5f) }
-    //var integral by remember { mutableDoubleStateOf(0.0) }
+    
+    // Data for plots
+    var prior by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var prior0 by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var prior1 by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var post by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var post0 by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var post1 by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
 
-
-    var prior by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-    var prior0 by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-    var prior1 by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-    var post by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-    var post0 by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-    var post1 by remember { mutableStateOf<List<DefaultPoint<Float,Float>>>(emptyList()) }
-
-
-
-
-
+    // Re-calculate distributions when parameters change
     LaunchedEffect(ns, ps, nt, pt,alphaprior,betaprior,kappa,lambda) {
-
-        val xs = ps * ns
-        val xt = pt * nt
-
-
-        val p1=((xs+alphaprior)/(ns+alphaprior+betaprior)).toDouble()
-        val theta1=ln(p1/(1-p1))
-        val v1=1/((ns+betaprior+alphaprior)*p1*(1-p1))
-
-
-        val p2=((xt+alphaprior)/(nt+alphaprior+betaprior)).toDouble()
-        val theta2=ln(p2/(1-p2))
-        val v2=1/((nt+betaprior+alphaprior)*p2*(1-p2))
-
-        val mean=theta1-theta2
-        val sd=sqrt(v1+v2)
-
-        val pval = 1.0-normal_cdf( ln(lambda.toDouble()).absoluteValue,mean ,sd)+normal_cdf(-ln(lambda.toDouble()).absoluteValue,mean ,sd)
-        weight = exp(kappa*ln(1-pval)/(1-pval)).toFloat()
-
         val priorDef = async {
-            val betadist1 = betapdf((weight*xs + alphaprior).toDouble(), (weight*(ns - xs) + betaprior).toDouble())
+            val dist = BorrowingModels.pValueBasedPrior(ns, ps, nt, pt, alphaprior, betaprior, kappa, lambda)
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist1(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to dist(p).toFloat())
             }
         }
 
@@ -88,38 +72,42 @@ fun PValueBased() {
             val betadist1 = betapdf(( alphaprior).toDouble(), ( + betaprior).toDouble())
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist1(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to betadist1(p).toFloat())
             }
         }
 
         val prior1Def = async {
+            val xs = ps * ns
             val betadist1 = betapdf((xs + alphaprior).toDouble(), ((ns - xs) + betaprior).toDouble())
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist1(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to betadist1(p).toFloat())
             }
         }
 
 
         val postDef = async {
-            val betadist1 = betapdf((xt+weight*xs + alphaprior).toDouble(), (nt-xt+weight*(ns - xs) + betaprior).toDouble())
+            val dist = BorrowingModels.pValueBasedPosterior(ns, ps, nt, pt, alphaprior, betaprior, kappa, lambda)
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist1(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to dist(p).toFloat())
             }
         }
         val post0Def = async {
+            val xt = pt * nt
             val betadist1 = betapdf((xt + alphaprior).toDouble(), (nt-xt + betaprior).toDouble())
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist1(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to betadist1(p).toFloat())
             }
         }
         val post1Def = async {
+            val xt = pt * nt
+            val xs = ps * ns
             val betadist1 = betapdf((xt +xs+ alphaprior).toDouble(), (nt-xt+(ns - xs) + betaprior).toDouble())
             (1..999).map {
                 val p = it.toDouble() / 1000.0
-                DefaultPoint(x=p.toFloat(),betadist1(p).toFloat())
+                mapOf("x" to p.toFloat(), "y" to betadist1(p).toFloat())
             }
         }
 
@@ -130,6 +118,8 @@ fun PValueBased() {
         post= postDef.await()
         post0= post0Def.await()
         post1= post1Def.await()
+
+        weight = BorrowingModels.pValueBasedWeight(ns, ps, nt, pt, alphaprior, betaprior, kappa, lambda).toFloat()
     }
 
 
@@ -323,82 +313,47 @@ fun PValueBased() {
 
         val legends= listOf("Mixture","No Source","With Source")
 
-        val colors = generateHueColorPalette(legends.size)
-
         Row {
-            Column(modifier = Modifier.weight(0.5f)) {
+                val priorFigure = letsPlot() +
+                        geomLine(data = mapOf("x" to prior.map { it["x"] }, "y" to prior.map { it["y"] }, "c" to List(prior.size) { legends[0] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        geomLine(data = mapOf("x" to prior0.map { it["x"] }, "y" to prior0.map { it["y"] }, "c" to List(prior0.size) { legends[1] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        geomLine(data = mapOf("x" to prior1.map { it["x"] }, "y" to prior1.map { it["y"] }, "c" to List(prior1.size) { legends[2] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        ggtitle("Prior distributions") +
+                        scaleColorManual(values = listOf("red", "blue", "green"), name = "") +
+                        scaleYContinuous(limits = 0 to maxf) +
+                        scaleXContinuous(name="Success rate in target study") +
+                        theme(
+                            plotTitle = elementText(size = 20, hjust = 0.5),
+                            legendText = elementText(size = 15),
+                            axisText = elementText(size = 15)
+                        ).legendPositionBottom()
 
-                ChartLayout(
-                    title = { Text(text="Prior distributions",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleLarge,) },
-                    legend = { Legend(legends, colors) },
-                    legendLocation = LegendLocation.BOTTOM
-                ) {
-                    XYGraph(
-                        modifier = Modifier.weight(0.5f).fillMaxSize(),
-                        xAxisModel = FloatLinearAxisModel(0f..1f),
-                        yAxisModel = FloatLinearAxisModel(0f..maxf),
-
-
-                        xAxisTitle = "Probability parameter",
-                        xAxisLabels = { value -> (round(10 * value) / 10f).toString().take(3) },
-                        yAxisTitle = "Density",
-
-                        ) {
-
-                        LinePlot(
-                            data = prior,
-                            lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[0 ]))
-                        )
-                        LinePlot(
-                            data = prior0,
-                            lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[1 ]))
-                        )
-                        LinePlot(
-                            data = prior1,
-                            lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[2 ]))
-                        )
-                    }
-                }
-            }
-
-            Column(modifier = Modifier.weight(0.5f)) {
-
-                ChartLayout(
-                    title = { Text(text="Posterior distributions",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.titleLarge,) },
-                    legend = { Legend(legends, colors) },
-                    legendLocation = LegendLocation.BOTTOM
-                ) {
-                    XYGraph(
-                        modifier = Modifier.weight(0.5f).fillMaxSize(),
-                        xAxisModel = FloatLinearAxisModel(0f..1f),
-                        yAxisModel = FloatLinearAxisModel(0f..maxf),
+                PlotPanel(figure = priorFigure, modifier = Modifier.weight(0.5f).fillMaxSize())
 
 
-                        xAxisTitle = "Probability parameter",
-                        xAxisLabels = { value -> (round(10 * value) / 10f).toString().take(3) },
-                        yAxisTitle = "Density",
+                val postFigure = letsPlot() +
+                        geomLine(data = mapOf(
+                            "x" to post.map { it["x"] },
+                            "y" to post.map { it["y"] },
+                            "c" to List(post.size) { legends[0] }), size = 2.0) {
+                            x = "x"
+                            y = "y"
+                            color = "c"
+                        } +
+                        geomLine(data = mapOf("x" to post0.map { it["x"] }, "y" to post0.map { it["y"] }, "c" to List(post0.size) { legends[1] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        geomLine(data = mapOf("x" to post1.map { it["x"] }, "y" to post1.map { it["y"] }, "c" to List(post1.size) { legends[2] }), size = 2.0) { x = "x"; y = "y"; color = "c" } +
+                        ggtitle("Posterior distributions") +
+                        scaleColorManual(values = listOf("red", "blue", "green"), name = "") +
+                        scaleYContinuous(limits = 0 to maxf) +
+                        scaleXContinuous(name="Success rate in target study") +
+                        theme(
+                            plotTitle = elementText(size = 20, hjust = 0.5),
+                            legendText = elementText(size = 15),
+                            axisText = elementText(size = 15)
+                        ).legendPositionBottom()
 
-                        ) {
+                PlotPanel(figure = postFigure, modifier = Modifier.weight(0.5f).fillMaxSize())
 
-                        LinePlot(
-                            data = post,
-                            lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[0 ]))
-                        )
-                        LinePlot(
-                            data = post0,
-                            lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[1 ]))
-                        )
-                        LinePlot(
-                            data = post1,
-                            lineStyle = LineStyle(strokeWidth = 2.dp,brush=SolidColor(colors[2 ]))
-                        )
-                    }
-                }
-            }
         }
     }
 }
