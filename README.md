@@ -4,6 +4,8 @@
 
 This project demonstrates several statistical methods for borrowing information from historical data in clinical trials or other research settings, implemented using Kotlin Wasm and Compose HTML.
 
+You can try the interactive version here: [https://leonidbresjnev.github.io/funwithwasm/](https://leonidbresjnev.github.io/funwithwasm/)
+
 ## Borrowing Information Methods
 
 The application implements and visualizes the following methods for information borrowing:
